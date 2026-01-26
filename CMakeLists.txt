@@ -28,6 +28,7 @@ enable_testing()
 
 add_executable(tests
     tests/test_order.cpp
+    tests/test_event.cpp
     src/order.cpp
 )
 target_include_directories(tests PRIVATE include)
