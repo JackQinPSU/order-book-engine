@@ -1,0 +1,19 @@
+# Build output
+build/
+Debug/
+Release/
+
+# CMake
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+
+# Visual Studio
+*.sln
+*.vcxproj*
+.vs/
+x64/
+
+# OS junk
+.DS_Store
+Thumbs.db
