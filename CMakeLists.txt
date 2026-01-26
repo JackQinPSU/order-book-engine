@@ -1,18 +1,36 @@
-cmake_minimum_required(VERSION 3.14)
+cmake_minimum_required(VERSION 3.15)
 project(OrderBookEngine)
 
-# C++17 standard
+
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
 
-# Source Files
-set (SOURCES 
-    src/order.cpp)
+set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 
-add_executable(engine src/main.cpp ${SOURCES})
+include(FetchContent)
+FetchContent_Declare(
+  googletest
+  GIT_REPOSITORY https://github.com/google/googletest.git
+  GIT_TAG release-1.12.1
+)
+FetchContent_MakeAvailable(googletest)
 
-# Include directories
-target_include_directories(engine PRIVATE include)
+# Main engine
+add_executable(engine
+    src/main.cpp
+    src/order.cpp
+)
+target_include_directories(engine PRIVATE include) # Looking inside include for headers
 
+# Test 
+enable_testing()
 
-# Tests ( GoogleTest later)
+add_executable(tests
+    tests/test_order.cpp
+    src/order.cpp
+)
+target_include_directories(tests PRIVATE include)
+target_link_libraries(tests PRIVATE gtest_main)  # Glue googe test onto tests
+
+add_test(NAME OrderTests COMMAND $<TARGET_FILE:tests>) # Run test.exe when running tests

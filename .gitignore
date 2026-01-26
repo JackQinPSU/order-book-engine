@@ -2,6 +2,7 @@
 build/
 Debug/
 Release/
+Testing/
 
 # CMake
 CMakeCache.txt
