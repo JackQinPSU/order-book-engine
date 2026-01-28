@@ -1,24 +1,34 @@
 #include "order.h"
 #include <iostream>
 
-Order::Order(int id, std::string side, double price, int qty)
-    : order_id(id), side(side), price(price), quantity(qty), filled(0) {
-}
+Order::Order(int64_t order_id, 
+             std::string symbol,
+             std::string side, 
+             double price, 
+             int quantity, 
+             int64_t timestamp)
+    : order_id_(order_id), 
+      symbol_(symbol),
+      side_(side), 
+      price_(price), 
+      quantity_(quantity), 
+      filled_(0),
+      timestamp_(timestamp)  {}
 
 int Order::getRemaining() const {
-    return quantity - filled;
+    return quantity_ - filled_;
 }
 
 void Order::fill(int qty) {
-    filled += qty;
+    filled_ += qty;
 }
 
 bool Order::isFilled() const {
-    return filled >= quantity;
+    return filled_ >= quantity_;
 }
 
 void Order::print() const {
-    std::cout << "Order " << order_id << ": " 
-              << side << " " << quantity << " @ $" << price 
-              << " (filled: " << filled << ")" << std::endl;
+    std::cout << "Order " << order_id_ << ": " << symbol_ << " "
+              << side_ << " " << quantity_ << " @ $" << price_
+              << " (filled: " << filled_ << ")" << std::endl;
 }
