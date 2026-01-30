@@ -3,7 +3,7 @@
 
 Order::Order(int64_t order_id, 
              std::string symbol,
-             std::string side, 
+             Side side, 
              double price, 
              int quantity, 
              int64_t timestamp)
@@ -29,6 +29,6 @@ bool Order::isFilled() const {
 
 void Order::print() const {
     std::cout << "Order " << order_id_ << ": " << symbol_ << " "
-              << side_ << " " << quantity_ << " @ $" << price_
+              << to_string(side_) << " " << quantity_ << " @ $" << price_
               << " (filled: " << filled_ << ")" << std::endl;
 }
