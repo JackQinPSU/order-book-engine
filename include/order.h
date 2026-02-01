@@ -3,15 +3,7 @@
 
 #include <string>
 #include <cstdint>
-
-enum class Side : uint8_t {
-    BUY,
-    SELL
-};
-
-inline const char* to_string(Side s) {
-    return (s == Side::BUY) ? "BUY" : "SELL";
-}
+#include "types.h"
 
 class Order {
 public:

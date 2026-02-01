@@ -4,6 +4,7 @@
 #include <string>
 #include <cstdint>
 #include <chrono>
+#include "types.h"
 
 //Event types
 enum class EventType {
@@ -31,7 +32,7 @@ protected:
 // New Order Event
 class NewOrderEvent : public Event {
 public:
-    NewOrderEvent(int64_t order_id, std::string symbol, std::string side,
+    NewOrderEvent(int64_t order_id, std::string symbol, Side side,
                   double price, int quantity, int64_t timestamp)
         : Event(EventType::NEW_ORDER, timestamp),
           order_id_(order_id),
@@ -42,14 +43,14 @@ public:
     
     int64_t getOrderId() const { return order_id_; }
     std::string getSymbol() const { return symbol_; }
-    std::string getSide() const { return side_; }
+    Side getSide() const { return side_; }
     double getPrice() const { return price_; }
     int getQuantity() const { return quantity_; }
     
 private:
     int64_t order_id_;
     std::string symbol_;
-    std::string side_;
+    Side side_;
     double price_;
     int quantity_;
 };

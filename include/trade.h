@@ -3,7 +3,7 @@
 
 #include <cstdint>
 #include <string>
-#include "order.h"
+#include "types.h"
 
 struct Trade {
     int64_t trade_id;

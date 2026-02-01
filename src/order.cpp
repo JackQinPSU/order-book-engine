@@ -1,4 +1,5 @@
 #include "order.h"
+#include "types.h"
 #include <iostream>
 
 Order::Order(int64_t order_id, 
@@ -15,17 +16,10 @@ Order::Order(int64_t order_id,
       filled_(0),
       timestamp_(timestamp)  {}
 
-int Order::getRemaining() const {
-    return quantity_ - filled_;
-}
-
 void Order::fill(int qty) {
     filled_ += qty;
 }
 
-bool Order::isFilled() const {
-    return filled_ >= quantity_;
-}
 
 void Order::print() const {
     std::cout << "Order " << order_id_ << ": " << symbol_ << " "
