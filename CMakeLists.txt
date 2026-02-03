@@ -29,9 +29,12 @@ enable_testing()
 add_executable(tests
     tests/test_order.cpp
     tests/test_event.cpp
+    tests/book_side_tests.cpp
+    
+    src/book_side.cpp
     src/order.cpp
 )
 target_include_directories(tests PRIVATE include)
 target_link_libraries(tests PRIVATE gtest_main)  # Glue googe test onto tests
 
-add_test(NAME OrderTests COMMAND $<TARGET_FILE:tests>) # Run test.exe when running tests
+add_test(NAME AllTests COMMAND $<TARGET_FILE:tests>) # Run test.exe when running tests
