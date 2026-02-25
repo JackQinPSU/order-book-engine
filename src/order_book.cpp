@@ -25,7 +25,7 @@ OrderBook::OrderBook(std::string symbol)
 std::vector<Trade> OrderBook::addOrder(const std::shared_ptr<Order>& order) {
     if (!order) throw std::invalid_argument("Null order");
     // If Order has symbol, enforce:
-    // if (order->getSymbol() != symbol_) throw std::invalid_argument("Wrong symbol");
+    if (order->getSymbol() != symbol_) throw std::invalid_argument("Wrong symbol");
 
     std::vector<Trade> trades;
 
@@ -127,7 +127,7 @@ Trade OrderBook::makeTrade(const std::shared_ptr<Order>& taker,
                            int qty) {
     if (!taker || !maker) throw std::invalid_argument("Null taker/maker in makeTrade");
 
-    Trade t;
+    Trade t;        // Create Trade snapshot
     t.trade_id = ++trade_counter_;
     t.symbol = symbol_;
     t.taker_order_id = taker->getOrderId();

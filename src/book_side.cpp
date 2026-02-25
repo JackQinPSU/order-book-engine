@@ -19,7 +19,7 @@ void BookSide::addOrder(std::shared_ptr<Order> order) {
     order_to_price_[order->getOrderId()] = price;   // Map order_id to price, for quick lookup
 }
 
-std::optional<double> BookSide::getBestPrice() const {
+std::optional<double> BookSide::getBestPrice() const {  // Optional: returns nullopt if empty
     if (price_levels_.empty()) {
         return std::nullopt;
     }
