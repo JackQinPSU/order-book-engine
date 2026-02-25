@@ -31,7 +31,7 @@ std::optional<double> BookSide::getBestPrice() const {
     }
 }
 
-// skips filled orders but does not remove them
+// skips filled orders but does ****NOT**** remove them
 std::shared_ptr<Order> BookSide::getBestOrder() const {
     auto best_price = getBestPrice();
     if (!best_price) return nullptr;
