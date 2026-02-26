@@ -5,8 +5,10 @@
 #include <iostream>
 #include <stdexcept>
 
+
 namespace {
 int64_t now_ns() {
+    // Wall-Clock timestemp for trades.
     using namespace std::chrono;
     return duration_cast<nanoseconds>(steady_clock::now().time_since_epoch()).count();
 }
@@ -72,7 +74,7 @@ double OrderBook::getSpread() {
     auto bid = bids_.getBestPrice();
     auto ask = asks_.getBestPrice();
     if (!bid || !ask) return 0.0;
-    return (*ask) - (*bid);
+    return to_double(*ask - *bid);
 }
 
 void OrderBook::print(int levels) const {
@@ -90,8 +92,8 @@ std::vector<Trade> OrderBook::matchIncoming(const std::shared_ptr<Order>& incomi
         auto maker = opposite.getBestOrder();
         if (!maker) break;
 
-        const double inc_px  = incoming->getPrice();
-        const double maker_px = maker->getPrice();
+        const Price inc_px  = incoming->getPrice();
+        const Price maker_px = maker->getPrice();
 
         const bool crosses =
             (incoming->getSide() == Side::BUY) ? (inc_px >= maker_px)
@@ -109,12 +111,8 @@ std::vector<Trade> OrderBook::matchIncoming(const std::shared_ptr<Order>& incomi
         trades.push_back(makeTrade(incoming, maker, maker_px, qty));
 
         // If maker is fully filled, it is no longer cancelable.
-        // If you keep lazy cleanup in BookSide, you don't need to erase it here,
-        // but SHOULD remove its routing entry.
         if (maker->isFilled()) {
             order_side_.erase(maker->getOrderId());
-            // If you prefer eager removal instead of lazy cleanup, uncomment:
-            // opposite.removeOrder(maker->getOrderId());
         }
     }
 
@@ -123,7 +121,7 @@ std::vector<Trade> OrderBook::matchIncoming(const std::shared_ptr<Order>& incomi
 
 Trade OrderBook::makeTrade(const std::shared_ptr<Order>& taker,
                            const std::shared_ptr<Order>& maker,
-                           double price,
+                           Price price,
                            int qty) {
     if (!taker || !maker) throw std::invalid_argument("Null taker/maker in makeTrade");
 
@@ -133,7 +131,7 @@ Trade OrderBook::makeTrade(const std::shared_ptr<Order>& taker,
     t.taker_order_id = taker->getOrderId();
     t.maker_order_id = maker->getOrderId();
     t.taker_side = taker->getSide();
-    t.price = price;
+    t.price = to_double(price);
     t.quantity = qty;
     t.timestamp = now_ns();
     return t;

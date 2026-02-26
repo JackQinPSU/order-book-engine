@@ -6,24 +6,18 @@
 BookSide::BookSide(Side side) : side_(side) {}
 
 void BookSide::addOrder(std::shared_ptr<Order> order) {
-    if (!order) {
-        throw std::invalid_argument("Null order");
-    }
-    if (order -> getSide() != side_) {
-        throw std::invalid_argument("Order side doesn't match BookSide");
-    }
+    if (!order) throw std::invalid_argument("Null order");
+    if (order -> getSide() != side_) throw std::invalid_argument("Order side doesn't match BookSide");
 
-    double price = order->getPrice();
+    Price price = order->getPrice();
 
     price_levels_[price].push_back(order);  // Add to the back of the deque (FIFO)
     order_to_price_[order->getOrderId()] = price;   // Map order_id to price, for quick lookup
 }
 
-std::optional<double> BookSide::getBestPrice() const {  // Optional: returns nullopt if empty
-    if (price_levels_.empty()) {
-        return std::nullopt;
-    }
-
+std::optional<Price> BookSide::getBestPrice() const {  // Optional: returns nullopt if empty
+    if (price_levels_.empty()) return std::nullopt;
+    
     if (side_ == Side::BUY) {
         return price_levels_.rbegin()->first;  // Highest price
     } else {
@@ -31,12 +25,17 @@ std::optional<double> BookSide::getBestPrice() const {  // Optional: returns nul
     }
 }
 
-// skips filled orders but does ****NOT**** remove them
-std::shared_ptr<Order> BookSide::getBestOrder() const {
+// skips filled orders and lazily clean from the front so getBestPrice() stays accurate
+std::shared_ptr<Order> BookSide::getBestOrder() {
     auto best_price = getBestPrice();
     if (!best_price) return nullptr;
 
-    const auto& level = price_levels_.at(*best_price);  // get copy of deque, read w/o modifying
+    cleanPriceLevel(*best_price);  // Flush filled orders at current level
+
+    best_price = getBestPrice();  // Re-check best price after cleanup
+    if (!best_price) return nullptr;  // No more levels after cleanup
+
+    const auto& level = price_levels_.at(*best_price);  // Const reference of deque, read w/o modifying
 
     for (const auto& order : level) {
         if (order && !order->isFilled()) {
@@ -50,7 +49,7 @@ bool BookSide::removeOrder(int64_t order_id) {
     auto it = order_to_price_.find(order_id);
     if (it == order_to_price_.end()) return false;  // Find order_id w/o having to search all levels
 
-    double price = it->second;
+    Price price = it->second;
 
     auto lvl_it = price_levels_.find(price);
     if (lvl_it == price_levels_.end()) {
@@ -77,7 +76,7 @@ bool BookSide::removeOrder(int64_t order_id) {
     return true;
 }
 
-int BookSide::getVolumeAtPrice(double price) const {
+int BookSide::getVolumeAtPrice(Price price) const {
     auto it = price_levels_.find(price);
     if (it == price_levels_.end()) return 0;
 
@@ -92,29 +91,26 @@ int BookSide::getVolumeAtPrice(double price) const {
 
 // Print top N levels of the book side
 void BookSide::print(int levels) const {
-    auto side_str = (side_ == Side::BUY) ? "BUY" : "SELL";
-    std::cout << side_str << " SIDE:\n";
-
+    std::cout << ((side_ == Side::BUY) ? "BUY" : "SELL") << " SIDE:\n";
     int count = 0;
+
+    auto print_level = [&](Price px) {
+        std::cout << "  $" << to_double(px) << " - "
+                  << getVolumeAtPrice(px) << " shares\n";
+    };
 
     if (side_ == Side::BUY) {
         for (auto it = price_levels_.rbegin();
-             it != price_levels_.rend() && count < levels;  // reverse iterator for BUY side， print whole list if length less than levels
-             ++it, ++count) {
-            std::cout << "  $" << it->first << " - "
-                      << getVolumeAtPrice(it->first) << " shares\n";
-        }
+             it != price_levels_.rend() && count < levels; ++it, ++count)
+            print_level(it->first);
     } else {
         for (auto it = price_levels_.begin();
-             it != price_levels_.end() && count < levels;
-             ++it, ++count) {
-            std::cout << "  $" << it->first << " - "
-                      << getVolumeAtPrice(it->first) << " shares\n";
-        }
+             it != price_levels_.end() && count < levels; ++it, ++count)
+            print_level(it->first);
     }
 }
 
-void BookSide::cleanPriceLevel(double price) {
+void BookSide::cleanPriceLevel(Price price) {
     auto it = price_levels_.find(price);
     if (it == price_levels_.end()) return;
 

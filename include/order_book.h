@@ -50,7 +50,7 @@ private:
     // Trade record helper
     Trade makeTrade(const std::shared_ptr<Order>& buy,
                     const std::shared_ptr<Order>& sell,
-                    double price,
+                    Price price,
                     int qty);
 };
 
