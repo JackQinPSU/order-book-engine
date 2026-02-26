@@ -5,7 +5,7 @@
 Order::Order(int64_t order_id, 
              std::string symbol,
              Side side, 
-             double price, 
+             Price price, 
              int quantity, 
              int64_t timestamp)
     : order_id_(order_id), 

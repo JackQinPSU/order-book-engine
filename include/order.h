@@ -8,13 +8,13 @@
 class Order {
 public:
     Order(int64_t order_id, std::string symbol, Side side,
-          double price, int quantity, int64_t timestamp);
+          Price price, int quantity, int64_t timestamp);
     
     // Getters
     int64_t getOrderId() const { return order_id_; }
     std::string getSymbol() const { return symbol_; }
     Side getSide() const { return side_; }
-    double getPrice() const { return price_; }
+    Price getPrice() const { return price_; }
     int getQuantity() const { return quantity_; }
     int getFilled() const { return filled_; }
     int64_t getTimestamp() const { return timestamp_; }
@@ -36,7 +36,7 @@ private:
     int64_t order_id_;
     std::string symbol_;
     Side side_;  // "BUY" or "SELL"
-    double price_;
+    Price price_;
     int quantity_;
     int filled_;
     int64_t timestamp_;

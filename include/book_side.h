@@ -16,16 +16,16 @@ public:
     void addOrder(std::shared_ptr<Order> order);
 
     // Get best price level
-    std::optional<double> getBestPrice() const;
+    std::optional<Price> getBestPrice() const;
 
-    // Get best order (front of the best price level)
-    std::shared_ptr<Order> getBestOrder() const;
+    // Get best order (front of the best price level), non-const to perform cleanups
+    std::shared_ptr<Order> getBestOrder();
 
     // Remove order from book
     bool removeOrder(int64_t order_id);
 
     // Get total volumn at a price level
-    int getVolumeAtPrice(double price) const;
+    int getVolumeAtPrice(Price price) const;
 
     // Print book state 
     void print(int levels = 5) const;
@@ -39,13 +39,13 @@ private:
     // Price -> Queue of orders at that price (FIFO)
     // For BUY, use reverse iteration (highest price first)
     // For SELL, use normal iteration (lowest price first)
-    std::map<double, std::deque<std::shared_ptr<Order>>> price_levels_;
+    std::map<Price, std::deque<std::shared_ptr<Order>>> price_levels_;
     
     // Quick lookup: order_id -> (price, position in deque)
-    std::map<int64_t, double> order_to_price_;
+    std::map<int64_t, Price> order_to_price_;
     
     // Helper: remove filled orders from front of level
-    void cleanPriceLevel(double price);
+    void cleanPriceLevel(Price price);
 };
 
 #endif // BOOK_SIDE_H
