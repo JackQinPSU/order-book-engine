@@ -8,7 +8,7 @@
 
 namespace {
 int64_t now_ns() {
-    // Wall-Clock timestemp for trades.
+    // Monotonic timestemp for trades.
     using namespace std::chrono;
     return duration_cast<nanoseconds>(steady_clock::now().time_since_epoch()).count();
 }
