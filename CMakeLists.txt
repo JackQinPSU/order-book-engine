@@ -1,7 +1,6 @@
 cmake_minimum_required(VERSION 3.15)
 project(OrderBookEngine)
 
-
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
@@ -16,25 +15,31 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(googletest)
 
+set(ENGINE_SOURCES
+    src/order.cpp
+    src/book_side.cpp
+    src/order_book.cpp
+    src/trade.cpp
+    src/matching_engine.cpp
+)
+
 # Main engine
 add_executable(engine
     src/main.cpp
-    src/order.cpp
+    ${ENGINE_SOURCES}
 )
-target_include_directories(engine PRIVATE include) # Looking inside include for headers
+target_include_directories(engine PRIVATE include)
 
-# Test 
+# Tests
 enable_testing()
 
 add_executable(tests
     tests/test_order.cpp
     tests/test_event.cpp
     tests/book_side_tests.cpp
-    
-    src/book_side.cpp
-    src/order.cpp
+    ${ENGINE_SOURCES}
 )
 target_include_directories(tests PRIVATE include)
-target_link_libraries(tests PRIVATE gtest_main)  # Glue googe test onto tests
+target_link_libraries(tests PRIVATE gtest_main)
 
-add_test(NAME AllTests COMMAND $<TARGET_FILE:tests>) # Run test.exe when running tests
+add_test(NAME AllTests COMMAND $<TARGET_FILE:tests>)
