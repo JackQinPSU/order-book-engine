@@ -116,11 +116,17 @@ void BookSide::cleanPriceLevel(Price price) {
 
     auto& level = it->second;
 
-    // remove filled orders from front (FIFO cleanup)
-    while (!level.empty() && level.front() && level.front()->isFilled()) {
-        order_to_price_.erase(level.front()->getOrderId());
-        level.pop_front();
-    }
+    // remove ALL filled orders, not just the front, so stale entries don't
+    // accumulate in the deque or in order_to_price_ between matching rounds
+    auto new_end = std::remove_if(level.begin(), level.end(),
+        [this](const std::shared_ptr<Order>& o) {
+            if (o && o->isFilled()) {
+                order_to_price_.erase(o->getOrderId());
+                return true;
+            }
+            return false;
+        });
+    level.erase(new_end, level.end());
 
     if (level.empty()) {
         price_levels_.erase(it);
