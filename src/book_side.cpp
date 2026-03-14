@@ -25,24 +25,25 @@ std::optional<Price> BookSide::getBestPrice() const {  // Optional: returns null
     }
 }
 
-// skips filled orders and lazily clean from the front so getBestPrice() stays accurate
+// Walk price levels from best to worst, cleaning each one before inspecting it.
+// Because cleanPriceLevel now removes ALL filled orders, if a level survives
+// the clean its front() is guaranteed to be an unfilled order — no scan needed.
 std::shared_ptr<Order> BookSide::getBestOrder() {
-    auto best_price = getBestPrice();
-    if (!best_price) return nullptr;
+    while (true) {
+        auto best_price = getBestPrice();
+        if (!best_price) return nullptr;
 
-    cleanPriceLevel(*best_price);  // Flush filled orders at current level
+        cleanPriceLevel(*best_price);
 
-    best_price = getBestPrice();  // Re-check best price after cleanup
-    if (!best_price) return nullptr;  // No more levels after cleanup
+        auto after_clean = getBestPrice();
+        if (!after_clean) return nullptr;
 
-    const auto& level = price_levels_.at(*best_price);  // Const reference of deque, read w/o modifying
-
-    for (const auto& order : level) {
-        if (order && !order->isFilled()) {
-            return order;
+        if (*after_clean == *best_price) {
+            // Level survived cleanup: front is guaranteed unfilled
+            return price_levels_.at(*best_price).front();
         }
+        // Level was entirely filled and erased; loop to examine the next best level
     }
-    return nullptr;  // If all orders at this level are filled
 }
 
 bool BookSide::removeOrder(int64_t order_id) {
