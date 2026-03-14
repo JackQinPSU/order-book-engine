@@ -41,6 +41,7 @@ private:
     OrderBook& getOrCreateBook(const std::string& symbol);
 
     std::unordered_map<std::string, std::unique_ptr<OrderBook>> books_;
+    std::unordered_map<int64_t, std::string> order_to_symbol_;  // O(1) cancel routing
     TradeCallback trade_cb_;
     int64_t total_trades_ = 0;
 };

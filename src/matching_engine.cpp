@@ -26,6 +26,12 @@ std::vector<Trade> MatchingEngine::process(const NewOrderEvent& e) {
     OrderBook& book = getOrCreateBook(e.getSymbol());
     auto trades = book.addOrder(order);
 
+    // Track resting orders so cancel can find the right book in O(1).
+    // Orders that were fully matched immediately are never rested, so skip them.
+    if (!order->isFilled()) {
+        order_to_symbol_[order->getOrderId()] = e.getSymbol();
+    }
+
     // Fire callback and accumulate stats
     for (const auto& t : trades) {
         ++total_trades_;
@@ -36,14 +42,15 @@ std::vector<Trade> MatchingEngine::process(const NewOrderEvent& e) {
 }
 
 std::vector<Trade> MatchingEngine::process(const CancelOrderEvent& e) {
-    // We need to find which book owns this order_id.
-    // Linear scan across books is acceptable here since cancel
-    // volume is low relative to new orders. If this becomes a bottleneck,
-    // add a global order_id -> symbol index.
-    for (auto& [sym, book] : books_) {
-        if (book->cancelOrder(e.getOrderId())) return {};
+    auto it = order_to_symbol_.find(e.getOrderId());
+    if (it == order_to_symbol_.end()) return {};  // unknown or already filled
+
+    const std::string& sym = it->second;
+    order_to_symbol_.erase(it);  // remove regardless — order is leaving the book
+
+    if (auto* book = getBook(sym)) {
+        book->cancelOrder(e.getOrderId());
     }
-    // Not found — silently ignore (order may have already been filled)
     return {};
 }
 
