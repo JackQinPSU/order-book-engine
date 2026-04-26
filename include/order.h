@@ -8,38 +8,45 @@
 class Order {
 public:
     Order(int64_t order_id, std::string symbol, Side side,
-          Price price, int quantity, int64_t timestamp);
-    
+          Price price, int quantity, int64_t timestamp,
+          OrderType order_type = OrderType::LIMIT);
+
     // Getters
-    int64_t getOrderId() const { return order_id_; }
-    std::string getSymbol() const { return symbol_; }
-    Side getSide() const { return side_; }
-    Price getPrice() const { return price_; }
-    int getQuantity() const { return quantity_; }
-    int getFilled() const { return filled_; }
-    int64_t getTimestamp() const { return timestamp_; }
-    
+    int64_t     getOrderId()   const { return order_id_; }
+    std::string getSymbol()    const { return symbol_; }
+    Side        getSide()      const { return side_; }
+    Price       getPrice()     const { return price_; }
+    int         getQuantity()  const { return quantity_; }
+    int         getFilled()    const { return filled_; }
+    int64_t     getTimestamp() const { return timestamp_; }
+    OrderType   getOrderType() const { return order_type_; }
+
     // State
-    int getRemaining() const { return quantity_ - filled_; }
-    bool isFilled() const { return filled_ >= quantity_; }
-    
+    int  getRemaining() const { return quantity_ - filled_; }
+    bool isFilled()     const { return filled_ >= quantity_; }
+
     // Actions
     void fill(int qty);
-    
+
+    // In-place quantity modification (preserves time priority).
+    // Sets quantity_ = new_qty. Returns false if new_qty <= filled_ (already consumed).
+    bool resize(int new_qty);
+
     // Display
     void print() const;
-    
+
     // Comparison for priority (price-time)
     bool operator<(const Order& other) const;
-    
+
 private:
-    int64_t order_id_;
+    int64_t     order_id_;
     std::string symbol_;
-    Side side_;  // "BUY" or "SELL"
-    Price price_;
-    int quantity_;
-    int filled_;
-    int64_t timestamp_;
+    Side        side_;
+    Price       price_;
+    int         quantity_;
+    int         filled_;
+    int64_t     timestamp_;
+    OrderType   order_type_;
 };
 
 #endif // ORDER_H
