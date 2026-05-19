@@ -7,6 +7,8 @@
 #include "book_side.h"
 #include "order.h"
 #include "types.h"
+#include "order_book.h"
+
 
 // ---- Helpers ----
 
@@ -128,4 +130,124 @@ TEST_F(BookSideTest, GetBestOrder_AllOrdersFilledAtBestLevel_ReturnsNullptr) {
 
     auto best = bids.getBestOrder();
     EXPECT_EQ(best, nullptr);
+}
+
+// -------------------- LIMIT orders rest if not filled, MARKET orders don't rest --------------------
+TEST(OrderTypeTest, LimitOrderRestsWhenNotFilled) {
+    OrderBook book("AAPL");
+
+    auto buy = std::make_shared<Order>(
+        1,
+        "AAPL",
+        Side::BUY,
+        to_fixed(150.00),
+        100,
+        1000,
+        OrderType::LIMIT
+    );
+
+    auto trades = book.addOrder(buy);
+
+    EXPECT_EQ(trades.size(), 0);
+
+    auto bestBid = book.getBestBid();
+    ASSERT_NE(bestBid, nullptr);
+    EXPECT_EQ(bestBid->getPrice(), to_fixed(150.00));
+}
+
+TEST(OrderTypeTest, MarketOrderDoesNotRestWhenUnfilled) {
+    OrderBook book("AAPL");
+
+    auto buy = std::make_shared<Order>(
+        1,
+        "AAPL",
+        Side::BUY,
+        0,
+        100,
+        1000,
+        OrderType::MARKET
+    );
+
+    auto trades = book.addOrder(buy);
+
+    EXPECT_EQ(trades.size(), 0);
+    EXPECT_EQ(book.getBestBid(), nullptr);
+}
+
+
+// ---------- IOC orders should also not rest when unfilled ---------  
+TEST(OrderTypeTest, IOCOrderDoesNotRestWhenUnfilled) {
+    OrderBook book("AAPL");
+
+    auto buy = std::make_shared<Order>(
+        1,
+        "AAPL",
+        Side::BUY,
+        to_fixed(150.00),
+        100,
+        1000,
+        OrderType::IOC
+    );
+
+    auto trades = book.addOrder(buy);
+
+    EXPECT_EQ(trades.size(), 0);
+    EXPECT_EQ(book.getBestBid(), nullptr);
+}
+
+
+// ---------- MARKET orders should match at any price, even if it means sweeping through multiple levels ---------
+TEST(OrderTypeTest, MarketBuySweepsMultipleAskLevels) {
+    OrderBook book("AAPL");
+
+    auto sell1 = std::make_shared<Order>(
+        1, "AAPL", Side::SELL, to_fixed(150.00), 50, 1000, OrderType::LIMIT
+    );
+
+    auto sell2 = std::make_shared<Order>(
+        2, "AAPL", Side::SELL, to_fixed(151.00), 50, 1001, OrderType::LIMIT
+    );
+
+    book.addOrder(sell1);
+    book.addOrder(sell2);
+
+    auto marketBuy = std::make_shared<Order>(
+        3, "AAPL", Side::BUY, 0, 100, 1002, OrderType::MARKET
+    );
+
+    auto trades = book.addOrder(marketBuy);
+
+    EXPECT_EQ(trades.size(), 2);
+    EXPECT_EQ(trades[0].quantity, 50);
+    EXPECT_EQ(trades[1].quantity, 50);
+}
+
+// --------------------- IOC orders should match at limit price or better, but not worse -----------------
+TEST(OrderTypeTest, IOCBuyRespectsLimitPrice) {
+    OrderBook book("AAPL");
+
+    auto sell1 = std::make_shared<Order>(
+        1, "AAPL", Side::SELL, to_fixed(150.00), 50, 1000, OrderType::LIMIT
+    );
+
+    auto sell2 = std::make_shared<Order>(
+        2, "AAPL", Side::SELL, to_fixed(152.00), 50, 1001, OrderType::LIMIT
+    );
+
+    book.addOrder(sell1);
+    book.addOrder(sell2);
+
+    auto iocBuy = std::make_shared<Order>(
+        3, "AAPL", Side::BUY, to_fixed(151.00), 100, 1002, OrderType::IOC
+    );
+
+    auto trades = book.addOrder(iocBuy);
+    auto bestAsk = book.getBestAsk();
+
+    EXPECT_EQ(trades.size(), 1);
+    EXPECT_EQ(trades[0].quantity, 50);
+    ASSERT_NE(bestAsk, nullptr);
+
+    // The 152 sell order should still be resting.
+    EXPECT_EQ(bestAsk->getPrice(), to_fixed(152.00));
 }
