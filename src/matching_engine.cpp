@@ -29,7 +29,7 @@ std::vector<Trade> MatchingEngine::process(const NewOrderEvent& e) {
 
     // Track resting orders so cancel can find the right book in O(1).
     // Orders that were fully matched immediately are never rested, so skip them.
-    if (!order->isFilled()) {
+    if (!order->isFilled() && order->getOrderType() == OrderType::LIMIT) {
         order_to_symbol_[order->getOrderId()] = e.getSymbol();
     }
 

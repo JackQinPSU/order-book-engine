@@ -19,7 +19,7 @@ static std::shared_ptr<Order> MakeOrder(
    int qty,
    int64_t ts
 ){
-    return std::make_shared<Order>(id, "AAPL", side, price, qty, ts);
+    return std::make_shared<Order>(id, "AAPL", side, to_fixed(price), qty, ts);
 }
 
 class BookSideTest : public ::testing::Test {
@@ -44,7 +44,7 @@ TEST_F(BookSideTest, Bids_BestPriceIsHighest) {
 
     auto best = bids.getBestPrice();
     ASSERT_TRUE(best.has_value());
-    EXPECT_DOUBLE_EQ(*best, 101.0);
+    EXPECT_EQ(*best, to_fixed(101.0));
 }
 
 TEST_F(BookSideTest, Asks_BestPriceIsLowest) {
@@ -54,7 +54,7 @@ TEST_F(BookSideTest, Asks_BestPriceIsLowest) {
 
     auto best = asks.getBestPrice();
     ASSERT_TRUE(best.has_value());
-    EXPECT_DOUBLE_EQ(*best, 98.0);
+    EXPECT_EQ(*best, to_fixed(98.0));
 }
 
 // -------------------- FIFO within same price level --------------------
@@ -91,13 +91,13 @@ TEST_F(BookSideTest, CancelOnlyOrderAtBestPrice_UpdatesBestPrice) {
 
     auto best0 = bids.getBestPrice();
     ASSERT_TRUE(best0.has_value());
-    EXPECT_DOUBLE_EQ(*best0, 101.0);
+    EXPECT_EQ(*best0, to_fixed(101.0));
 
     bids.removeOrder(2); // remove only 101 level
 
     auto best1 = bids.getBestPrice();
     ASSERT_TRUE(best1.has_value());
-    EXPECT_DOUBLE_EQ(*best1, 100.0);
+    EXPECT_EQ(*best1, to_fixed(100.0));
 }
 
 // -------------------- Filled orders are skipped --------------------
