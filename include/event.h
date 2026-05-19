@@ -32,16 +32,19 @@ protected:
 class NewOrderEvent : public Event {
 public:
     NewOrderEvent(int64_t order_id, std::string symbol, Side side,
-                  Price price, int quantity, int64_t timestamp)
+                  Price price, int quantity, int64_t timestamp,
+                  OrderType order_type = OrderType::LIMIT)
         : Event(EventType::NEW_ORDER, timestamp),
           order_id_(order_id), symbol_(std::move(symbol)),
-          side_(side), price_(price), quantity_(quantity) {}
+          side_(side), price_(price), quantity_(quantity),
+          order_type_(order_type) {}
 
     int64_t     getOrderId()  const { return order_id_; }
     std::string getSymbol()   const { return symbol_; }
     Side        getSide()     const { return side_; }
     Price       getPrice()    const { return price_; }
     int         getQuantity() const { return quantity_; }
+    OrderType   getOrderType() const { return order_type_; }
 
 private:
     int64_t     order_id_;
@@ -49,6 +52,8 @@ private:
     Side        side_;
     Price       price_;   // fixed-point
     int         quantity_;
+    OrderType   order_type_;
+
 };
 
 // Cancel Order

@@ -20,7 +20,8 @@ std::vector<Trade> MatchingEngine::process(const NewOrderEvent& e) {
         e.getSide(),
         e.getPrice(),      // already fixed-point Price from event
         e.getQuantity(),
-        e.getTimestamp()
+        e.getTimestamp(),
+        e.getOrderType()
     );
 
     OrderBook& book = getOrCreateBook(e.getSymbol());

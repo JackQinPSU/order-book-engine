@@ -39,7 +39,7 @@ std::vector<Trade> OrderBook::addOrder(const std::shared_ptr<Order>& order) {
     trades.insert(trades.end(), matched.begin(), matched.end());
 
     // 2) rest remainder
-    if (!order->isFilled()) {
+    if (!order->isFilled() && order->getOrderType() != OrderType::LIMIT) {
         my_side.addOrder(order);
         order_side_[order->getOrderId()] = order->getSide();
     }
