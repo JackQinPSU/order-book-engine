@@ -21,6 +21,7 @@ public:
     // Convenience overloads
     std::vector<Trade> process(const NewOrderEvent& e);
     std::vector<Trade> process(const CancelOrderEvent& e);
+    std::vector<Trade> process(const ModifyOrderEvent& e);
 
     // Register a callback fired for every trade (e.g. for logging/market data)
     using TradeCallback = std::function<void(const Trade&)>;

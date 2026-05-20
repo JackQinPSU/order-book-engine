@@ -8,6 +8,8 @@ std::vector<Trade> MatchingEngine::process(const Event& event) {
             return process(static_cast<const NewOrderEvent&>(event));
         case EventType::CANCEL_ORDER:
             return process(static_cast<const CancelOrderEvent&>(event));
+        case EventType::MODIFY_ORDER:
+            return process(static_cast<const ModifyOrderEvent&>(event));
         default:
             throw std::runtime_error("Unhandled event type in MatchingEngine::process");
     }
@@ -73,4 +75,41 @@ OrderBook& MatchingEngine::getOrCreateBook(const std::string& symbol) {
 
     auto [ins, ok] = books_.emplace(symbol, std::make_unique<OrderBook>(symbol));
     return *ins->second;
+}
+
+std::vector<Trade> MatchingEngine::process(const ModifyOrderEvent& e) {
+    std::vector<Trade> trades;
+
+    auto it = order_to_symbol_.find(e.getOrderId());
+    if (it == order_to_symbol_.end()) {
+        return trades;
+    }
+
+    const std::string symbol = it->second;
+
+    OrderBook* book = getBook(symbol);
+    if (!book) {
+        order_to_symbol_.erase(e.getOrderId());
+        return trades;
+    }
+
+    trades = book->modifyOrder(
+        e.getOrderId(),
+        e.getNewPrice(),
+        e.getNewQty(),
+        e.getTimestamp()
+    );
+
+    if (!book->hasOrder(e.getOrderId())) {
+        order_to_symbol_.erase(e.getOrderId());
+    }
+
+    for (const auto& t : trades) {
+        ++total_trades_;
+        if (trade_cb_) {
+            trade_cb_(t);
+        }
+    }
+
+    return trades;
 }
