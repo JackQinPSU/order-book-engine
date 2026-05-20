@@ -33,6 +33,9 @@ public:
     // Check if empty
     bool isEmpty() const { return price_levels_.empty(); }
 
+    // Find Order by ID (returns nullptr if not found)
+    std::shared_ptr<Order> findOrder(int64_t order_id) const;
+
 private:
     Side side_;  // "BUY" or "SELL"
 

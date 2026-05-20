@@ -133,3 +133,24 @@ void BookSide::cleanPriceLevel(Price price) {
         price_levels_.erase(it);
     }
 }
+
+// New method to find an order by ID, returns nullptr if not found or already filled
+std::shared_ptr<Order> BookSide::findOrder(int64_t order_id) const {
+    auto it = order_to_price_.find(order_id);                   
+    if (it == order_to_price_.end()) return nullptr;                        // O(1) lookup to find the price level of the order
+
+    Price price = it->second;
+    auto lvl_it = price_levels_.find(price);                                
+    if (lvl_it == price_levels_.end()) return nullptr;
+
+    const auto& level = lvl_it->second;
+
+    auto order_it = std::find_if(level.begin(), level.end(),                // Scan only this price level for the order ID, and check if it's not filled
+        [order_id](const std::shared_ptr<Order>& o) {
+            return o && o->getOrderId() == order_id && !o->isFilled();
+        });
+
+    if (order_it == level.end()) return nullptr;
+
+    return *order_it;
+}
