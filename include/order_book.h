@@ -30,8 +30,18 @@ public:
     // Spread (returns 0.0 if one side missing)
     double getSpread();
 
+    // Check if order_id exists on this side
+    bool hasOrder(int64_t order_id) const;
+
     // Print both sides
     void print(int levels = 5) const;
+
+    std::vector<Trade> modifyOrder(
+    int64_t order_id,
+    Price new_price,
+    int new_qty,
+    int64_t timestamp
+    );
 
 private:
     std::string symbol_;

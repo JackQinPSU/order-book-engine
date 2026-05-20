@@ -138,3 +138,69 @@ Trade OrderBook::makeTrade(const std::shared_ptr<Order>& taker,
     t.timestamp = now_ns();
     return t;
 }
+
+// Check if order_id exists on this side
+bool OrderBook::hasOrder(int64_t order_id) const {
+    return order_side_.find(order_id) != order_side_.end();
+}
+
+std::vector<Trade> OrderBook::modifyOrder(
+    int64_t order_id,
+    Price new_price,
+    int new_qty,
+    int64_t timestamp
+) {
+    std::vector<Trade> trades;
+
+    if (new_qty <= 0) {
+        throw std::invalid_argument("Modified quantity must be positive");
+    }
+
+    auto side_it = order_side_.find(order_id);
+    if (side_it == order_side_.end()) {
+        return trades;
+    }
+
+    Side side = side_it->second;
+    BookSide& my_side = (side == Side::BUY) ? bids_ : asks_;
+
+    auto existing = my_side.findOrder(order_id);
+    if (!existing) {
+        order_side_.erase(order_id);
+        return trades;
+    }
+
+    Price old_price = existing->getPrice();
+    int old_qty = existing->getQuantity();
+
+    // Case 1:
+    // Same price + quantity reduction keeps time priority.
+    if (new_price == old_price && new_qty < old_qty) {
+        if (!existing->resize(new_qty)) {
+            throw std::invalid_argument("Invalid modified quantity");
+        }
+        return trades;
+    }
+
+    // Case 2:
+    // Same price + quantity increase OR price change loses priority.
+    // Remove old order and re-add updated order through normal matching path.
+    bool canceled = cancelOrder(order_id);
+    if (!canceled) {
+        return trades;
+    }
+
+    auto modified = std::make_shared<Order>(
+        order_id,
+        symbol_,
+        side,
+        new_price,
+        new_qty,
+        timestamp,
+        OrderType::LIMIT
+    );
+
+    trades = addOrder(modified);
+
+    return trades;
+}
