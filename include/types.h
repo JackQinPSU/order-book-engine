@@ -25,7 +25,7 @@ inline const char* to_string(OrderType t) {
     return "UNKNOWN";
 }
 
-using Price =  int64_t; // Price in cents (e.g., $100.50 -> 10050) so that we can avoid floating point issues.
+using Price =  int64_t; // Price in 4 decimal places (e.g., $100.50 -> 10050) so that we can avoid floating point issues.
 constexpr int64_t PRICE_SCALE = 10000; 
 
 inline Price to_fixed(double price) {

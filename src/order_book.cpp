@@ -172,6 +172,11 @@ std::vector<Trade> OrderBook::modifyOrder(
 
     Price old_price = existing->getPrice();
     int old_qty = existing->getQuantity();
+      int old_filled = existing->getFilled();
+
+    if (new_qty < old_filled) {
+        throw std::invalid_argument("Modified quantity cannot be less than filled quantity");
+    }
 
     // Case 1:
     // Same price + quantity reduction keeps time priority.
@@ -190,6 +195,13 @@ std::vector<Trade> OrderBook::modifyOrder(
         return trades;
     }
 
+  
+
+    bool canceled = cancelOrder(order_id);
+    if (!canceled) {
+        return trades;
+    }
+
     auto modified = std::make_shared<Order>(
         order_id,
         symbol_,
@@ -199,6 +211,10 @@ std::vector<Trade> OrderBook::modifyOrder(
         timestamp,
         OrderType::LIMIT
     );
+
+    if (old_filled > 0) {
+        modified->fill(old_filled);
+    }
 
     trades = addOrder(modified);
 

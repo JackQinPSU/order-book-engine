@@ -35,9 +35,6 @@ public:
     // Display
     void print() const;
 
-    // Comparison for priority (price-time)
-    bool operator<(const Order& other) const;
-
 private:
     int64_t     order_id_;
     std::string symbol_;
