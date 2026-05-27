@@ -197,11 +197,6 @@ std::vector<Trade> OrderBook::modifyOrder(
 
   
 
-    bool canceled = cancelOrder(order_id);
-    if (!canceled) {
-        return trades;
-    }
-
     auto modified = std::make_shared<Order>(
         order_id,
         symbol_,
