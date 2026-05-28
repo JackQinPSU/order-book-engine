@@ -43,3 +43,13 @@ target_include_directories(tests PRIVATE include)
 target_link_libraries(tests PRIVATE gtest_main)
 
 add_test(NAME AllTests COMMAND $<TARGET_FILE:tests>)
+
+# Benchmark
+add_executable(benchmark
+    benchmarks/benchmark.cpp
+    ${ENGINE_SOURCES}
+)
+
+target_include_directories(benchmark PRIVATE 
+    ${CMAKE_SOURCE_DIR}/include
+)
