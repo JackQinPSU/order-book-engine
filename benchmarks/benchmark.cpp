@@ -5,9 +5,17 @@
 #include <algorithm>
 #include <chrono>
 #include <cstdint>
+#include <ctime>
+#include <fstream>
+#include <iomanip>
 #include <iostream>
 #include <random>
 #include <vector>
+
+// Set by CMake to <repo>/result.md; fallback writes to the current folder.
+#ifndef RESULTS_PATH
+#define RESULTS_PATH "result.md"
+#endif
 
 using Clock = std::chrono::steady_clock;
 
@@ -119,6 +127,46 @@ int main() {
         std::cout << "Clock resolution: ~" << *first_nonzero
                   << " ns (latencies are rounded to this step)\n";
     }
+
+    // ---- Write the same results to result.md at the repo root ----
+    std::time_t now = std::time(nullptr);
+    std::tm local{};
+#ifdef _WIN32
+    localtime_s(&local, &now);
+#else
+    localtime_r(&now, &local);
+#endif
+
+    std::ofstream md(RESULTS_PATH);
+    if (!md) {
+        std::cerr << "Could not write " << RESULTS_PATH << "\n";
+        return 1;
+    }
+    md << "# Benchmark Results\n\n";
+    md << "Run: " << std::put_time(&local, "%Y-%m-%d %H:%M") << "  \n";
+    md << "Orders: " << NUM_ORDERS << " random limit orders, price 1-1000, qty 1-100, seed 42  \n";
+    md << "Trades generated: " << total_trades << "\n\n";
+
+    md << "## Throughput\n\n";
+    md << "| Metric | Value |\n|---|---|\n";
+    md << "| Total time | " << duration_sec << " sec |\n";
+    md << "| Throughput | " << static_cast<std::int64_t>(NUM_ORDERS / duration_sec) << " orders/sec |\n";
+    md << "| Avg latency | " << static_cast<double>(throughput_ns) / NUM_ORDERS << " ns/order |\n\n";
+
+    md << "## Latency per order\n\n";
+    md << "| Percentile | ns |\n|---|---|\n";
+    md << "| p50 | " << percentile(latencies, 50.0) << " |\n";
+    md << "| p99 | " << percentile(latencies, 99.0) << " |\n";
+    md << "| p99.9 | " << percentile(latencies, 99.9) << " |\n";
+    md << "| max | " << latencies.back() << " |\n\n";
+
+    md << "Clock overhead ~" << percentile(clock_cost, 50.0) << " ns";
+    if (first_nonzero != clock_cost.end()) {
+        md << ", resolution ~" << *first_nonzero << " ns (latencies rounded to this step)";
+    }
+    md << ".\n";
+
+    std::cout << "\nWrote " << RESULTS_PATH << "\n";
 
     return 0;
 }
