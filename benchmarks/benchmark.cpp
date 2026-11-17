@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <chrono>
 #include <cstdint>
+#include <cstdio>
 #include <ctime>
 #include <fstream>
 #include <iomanip>
@@ -16,11 +17,33 @@
 #ifndef RESULTS_PATH
 #define RESULTS_PATH "result.md"
 #endif
+#ifndef SOURCE_DIR
+#define SOURCE_DIR "."
+#endif
 
 using Clock = std::chrono::steady_clock;
 
 static std::int64_t elapsed_ns(Clock::time_point a, Clock::time_point b) {
     return std::chrono::duration_cast<std::chrono::nanoseconds>(b - a).count();
+}
+
+// Short commit hash of the code being benchmarked, with "-dirty" if there are uncommitted changes.
+static std::string git_commit() {
+#ifdef _WIN32
+    FILE* pipe = _popen("git -C \"" SOURCE_DIR "\" describe --always --dirty 2>NUL", "r");
+#else
+    FILE* pipe = popen("git -C \"" SOURCE_DIR "\" describe --always --dirty 2>/dev/null", "r");
+#endif
+    if (!pipe) return "unknown";
+    char buf[64] = {};
+    std::string out = fgets(buf, sizeof(buf), pipe) ? buf : "";
+#ifdef _WIN32
+    _pclose(pipe);
+#else
+    pclose(pipe);
+#endif
+    while (!out.empty() && (out.back() == '\n' || out.back() == '\r')) out.pop_back();
+    return out.empty() ? "unknown" : out;
 }
 
 // Nearest-rank percentile on an already-sorted vector.
@@ -30,17 +53,19 @@ static std::int64_t percentile(const std::vector<std::int64_t>& sorted, double p
 }
 
 int main() {
-    constexpr int NUM_ORDERS = 1'000'000;
+    constexpr int WARMUP_ORDERS = 100'000;  // processed first, never timed
+    constexpr int NUM_ORDERS = 1'000'000;   // the orders that are actually measured
+    constexpr int TOTAL_ORDERS = WARMUP_ORDERS + NUM_ORDERS;
 
     std::vector<NewOrderEvent> events;
-    events.reserve(NUM_ORDERS);
+    events.reserve(TOTAL_ORDERS);
 
     std::mt19937 rng(42);
     std::uniform_int_distribution<int> side_dist(0, 1);
     std::uniform_int_distribution<int> price_dist(1, 1000);
     std::uniform_int_distribution<int> qty_dist(1, 100);
 
-    for (int i = 0; i < NUM_ORDERS; ++i) {
+    for (int i = 0; i < TOTAL_ORDERS; ++i) {
         Side side = side_dist(rng) == 0 ? Side::BUY : Side::SELL;
 
         double price = static_cast<double>(price_dist(rng));
@@ -57,29 +82,43 @@ int main() {
         );
     }
 
+    // Split the events: first WARMUP_ORDERS are untimed, the rest are measured.
+    const auto warmup_begin   = events.begin();
+    const auto measured_begin = events.begin() + WARMUP_ORDERS;
+    const auto measured_end   = events.end();
+
+    // Warm-up: fills the book and warms caches/branch predictor/allocator. Not timed.
+    auto warm_up = [&](MatchingEngine& engine) {
+        for (auto it = warmup_begin; it != measured_begin; ++it) {
+            engine.process(*it);
+        }
+    };
+
     // ---- Run 1: throughput (no per-order timing, so no clock overhead) ----
     std::int64_t throughput_ns = 0;
     int total_trades = 0;
     {
         MatchingEngine engine;
+        warm_up(engine);
         auto start = Clock::now();
-        for (const auto& event : events) {
-            auto trades = engine.process(event);
+        for (auto it = measured_begin; it != measured_end; ++it) {
+            auto trades = engine.process(*it);
             total_trades += static_cast<int>(trades.size());
         }
         auto end = Clock::now();
         throughput_ns = elapsed_ns(start, end);
     }
 
-    // ---- Run 2: per-order latency (fresh engine, same events) ----
+    // ---- Run 2: per-order latency (fresh engine, same warm-up, same events) ----
     std::vector<std::int64_t> latencies;
     latencies.reserve(NUM_ORDERS);  // reserve up front so push_back never reallocates in the loop
     int latency_trades = 0;
     {
         MatchingEngine engine;
-        for (const auto& event : events) {
+        warm_up(engine);
+        for (auto it = measured_begin; it != measured_end; ++it) {
             auto t0 = Clock::now();
-            auto trades = engine.process(event);
+            auto trades = engine.process(*it);
             auto t1 = Clock::now();
             latencies.push_back(elapsed_ns(t0, t1));
             latency_trades += static_cast<int>(trades.size());
@@ -128,7 +167,7 @@ int main() {
                   << " ns (latencies are rounded to this step)\n";
     }
 
-    // ---- Write the same results to result.md at the repo root ----
+    // ---- Append one row per run to result.md at the repo root ----
     std::time_t now = std::time(nullptr);
     std::tm local{};
 #ifdef _WIN32
@@ -137,36 +176,38 @@ int main() {
     localtime_r(&now, &local);
 #endif
 
-    std::ofstream md(RESULTS_PATH);
+    // Write the header only if the file is new/empty; otherwise just append a row.
+    bool needs_header = true;
+    {
+        std::ifstream existing(RESULTS_PATH);
+        needs_header = !existing || existing.peek() == std::ifstream::traits_type::eof();
+    }
+
+    std::ofstream md(RESULTS_PATH, std::ios::app);
     if (!md) {
         std::cerr << "Could not write " << RESULTS_PATH << "\n";
         return 1;
     }
-    md << "# Benchmark Results\n\n";
-    md << "Run: " << std::put_time(&local, "%Y-%m-%d %H:%M") << "  \n";
-    md << "Orders: " << NUM_ORDERS << " random limit orders, price 1-1000, qty 1-100, seed 42  \n";
-    md << "Trades generated: " << total_trades << "\n\n";
-
-    md << "## Throughput\n\n";
-    md << "| Metric | Value |\n|---|---|\n";
-    md << "| Total time | " << duration_sec << " sec |\n";
-    md << "| Throughput | " << static_cast<std::int64_t>(NUM_ORDERS / duration_sec) << " orders/sec |\n";
-    md << "| Avg latency | " << static_cast<double>(throughput_ns) / NUM_ORDERS << " ns/order |\n\n";
-
-    md << "## Latency per order\n\n";
-    md << "| Percentile | ns |\n|---|---|\n";
-    md << "| p50 | " << percentile(latencies, 50.0) << " |\n";
-    md << "| p99 | " << percentile(latencies, 99.0) << " |\n";
-    md << "| p99.9 | " << percentile(latencies, 99.9) << " |\n";
-    md << "| max | " << latencies.back() << " |\n\n";
-
-    md << "Clock overhead ~" << percentile(clock_cost, 50.0) << " ns";
-    if (first_nonzero != clock_cost.end()) {
-        md << ", resolution ~" << *first_nonzero << " ns (latencies rounded to this step)";
+    if (needs_header) {
+        md << "# Benchmark Results\n\n";
+        md << "100k untimed warm-up orders, then 1M measured random limit orders "
+              "(price 1-1000, qty 1-100, seed 42), Release build. "
+              "Latencies in ns; clock resolution ~100 ns on Windows.\n\n";
+        md << "| Date | Commit | Throughput (orders/s) | Avg | p50 | p99 | p99.9 | Max | Trades |\n";
+        md << "|---|---|--:|--:|--:|--:|--:|--:|--:|\n";
     }
-    md << ".\n";
+    md << "| " << std::put_time(&local, "%Y-%m-%d %H:%M")
+       << " | " << git_commit()
+       << " | " << static_cast<std::int64_t>(NUM_ORDERS / duration_sec)
+       << " | " << throughput_ns / NUM_ORDERS
+       << " | " << percentile(latencies, 50.0)
+       << " | " << percentile(latencies, 99.0)
+       << " | " << percentile(latencies, 99.9)
+       << " | " << latencies.back()
+       << " | " << total_trades
+       << " |\n";
 
-    std::cout << "\nWrote " << RESULTS_PATH << "\n";
+    std::cout << "\nAppended results to " << RESULTS_PATH << "\n";
 
     return 0;
 }
