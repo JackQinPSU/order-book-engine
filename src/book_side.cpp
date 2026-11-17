@@ -1,6 +1,7 @@
 #include "book_side.h"
 #include <iostream>
 #include <algorithm>
+#include <iterator>
 #include <stdexcept>
 
 BookSide::BookSide(Side side) : side_(side) {}
@@ -25,24 +26,30 @@ std::optional<Price> BookSide::getBestPrice() const {  // Optional: returns null
     }
 }
 
-// Walk price levels from best to worst, cleaning each one before inspecting it.
-// Because cleanPriceLevel now removes ALL filled orders, if a level survives
-// the clean its front() is guaranteed to be an unfilled order — no scan needed.
+// Levels are never empty (empty ones are erased) and never hold filled orders
+// (makers are popped the moment they fill), so the best order is just the front
+// of the best level. O(1): map begin()/rbegin() are cached by std::map.
 std::shared_ptr<Order> BookSide::getBestOrder() {
-    while (true) {
-        auto best_price = getBestPrice();
-        if (!best_price) return nullptr;
+    if (price_levels_.empty()) return nullptr;
 
-        cleanPriceLevel(*best_price);
+    const auto& level = (side_ == Side::BUY) ? price_levels_.rbegin()->second
+                                             : price_levels_.begin()->second;
+    return level.front();
+}
 
-        auto after_clean = getBestPrice();
-        if (!after_clean) return nullptr;
+void BookSide::popBestOrder() {
+    if (price_levels_.empty()) return;
 
-        if (*after_clean == *best_price) {
-            // Level survived cleanup: front is guaranteed unfilled
-            return price_levels_.at(*best_price).front();
-        }
-        // Level was entirely filled and erased; loop to examine the next best level
+    // Best level: highest price for bids, lowest for asks.
+    auto lvl_it = (side_ == Side::BUY) ? std::prev(price_levels_.end())
+                                       : price_levels_.begin();
+    auto& level = lvl_it->second;
+
+    order_to_price_.erase(level.front()->getOrderId());
+    level.pop_front();
+
+    if (level.empty()) {
+        price_levels_.erase(lvl_it);    // erase by iterator: no second lookup
     }
 }
 
@@ -108,29 +115,6 @@ void BookSide::print(int levels) const {
         for (auto it = price_levels_.begin();
              it != price_levels_.end() && count < levels; ++it, ++count)
             print_level(it->first);
-    }
-}
-
-void BookSide::cleanPriceLevel(Price price) {
-    auto it = price_levels_.find(price);
-    if (it == price_levels_.end()) return;
-
-    auto& level = it->second;
-
-    // remove ALL filled orders, not just the front, so stale entries don't
-    // accumulate in the deque or in order_to_price_ between matching rounds
-    auto new_end = std::remove_if(level.begin(), level.end(),
-        [this](const std::shared_ptr<Order>& o) {
-            if (o && o->isFilled()) {
-                order_to_price_.erase(o->getOrderId());
-                return true;
-            }
-            return false;
-        });
-    level.erase(new_end, level.end());
-
-    if (level.empty()) {
-        price_levels_.erase(it);
     }
 }
 

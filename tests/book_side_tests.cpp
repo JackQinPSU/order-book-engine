@@ -100,36 +100,82 @@ TEST_F(BookSideTest, CancelOnlyOrderAtBestPrice_UpdatesBestPrice) {
     EXPECT_EQ(*best1, to_fixed(100.0));
 }
 
-// -------------------- Filled orders are skipped --------------------
+// -------------------- popBestOrder --------------------
 
-TEST_F(BookSideTest, GetBestOrder_SkipsFilledOrdersAtBestLevel) {
-    auto o1 = MakeOrder(1, Side::BUY, 100.0, 10, 100);
-    auto o2 = MakeOrder(2, Side::BUY, 100.0, 10, 101);
+TEST_F(BookSideTest, PopBestOrder_RemovesFront_NextOldestBecomesBest) {
+    bids.addOrder(MakeOrder(1, Side::BUY, 100.0, 10, 100));
+    bids.addOrder(MakeOrder(2, Side::BUY, 100.0, 10, 101));
 
-    bids.addOrder(o1);
-    bids.addOrder(o2);
-
-    // Fully fill the older order
-    o1->fill(10);
-    ASSERT_TRUE(o1->isFilled());
+    bids.popBestOrder();
 
     auto best = bids.getBestOrder();
     ASSERT_NE(best, nullptr);
     EXPECT_EQ(best->getOrderId(), 2);
+    EXPECT_EQ(bids.findOrder(1), nullptr);   // id lookup cleared too
+    EXPECT_FALSE(bids.removeOrder(1));       // can't cancel a popped order
 }
 
-TEST_F(BookSideTest, GetBestOrder_AllOrdersFilledAtBestLevel_ReturnsNullptr) {
-    // This matches your earlier getBestOrder() logic: it checks best price level only
-    auto o1 = MakeOrder(1, Side::BUY, 101.0, 10, 100);
-    auto o2 = MakeOrder(2, Side::BUY, 101.0, 10, 101);
-    bids.addOrder(o1);
-    bids.addOrder(o2);
+TEST_F(BookSideTest, PopBestOrder_LastAtLevel_MovesToNextLevel_ThenEmpty) {
+    bids.addOrder(MakeOrder(1, Side::BUY, 101.0, 10, 100));   // best bid
+    bids.addOrder(MakeOrder(2, Side::BUY, 100.0, 10, 101));
 
-    o1->fill(10);
-    o2->fill(10);
+    bids.popBestOrder();   // 101 level now empty and removed
+    auto best = bids.getBestPrice();
+    ASSERT_TRUE(best.has_value());
+    EXPECT_EQ(*best, to_fixed(100.0));
 
-    auto best = bids.getBestOrder();
-    EXPECT_EQ(best, nullptr);
+    bids.popBestOrder();
+    EXPECT_TRUE(bids.isEmpty());
+    EXPECT_EQ(bids.getBestOrder(), nullptr);
+
+    bids.popBestOrder();   // no-op on an empty side
+    EXPECT_TRUE(bids.isEmpty());
+}
+
+TEST_F(BookSideTest, PopBestOrder_Asks_RemovesLowestPrice) {
+    asks.addOrder(MakeOrder(1, Side::SELL, 101.0, 10, 100));
+    asks.addOrder(MakeOrder(2, Side::SELL,  99.0, 10, 101));   // best ask
+
+    asks.popBestOrder();
+
+    auto best = asks.getBestOrder();
+    ASSERT_NE(best, nullptr);
+    EXPECT_EQ(best->getOrderId(), 1);
+}
+
+// -------------------- Filled makers leave the book during matching --------------------
+
+TEST(OrderBookMatchTest, FullyFilledMakersAreRemoved_PartialStaysAtFront) {
+    OrderBook book("AAPL");
+    book.addOrder(MakeOrder(1, Side::SELL, 100.0, 10, 1));
+    book.addOrder(MakeOrder(2, Side::SELL, 100.0, 10, 2));
+    book.addOrder(MakeOrder(3, Side::SELL, 100.0, 10, 3));
+
+    // Takes all of #1, all of #2 and 5 of #3.
+    auto trades = book.addOrder(MakeOrder(4, Side::BUY, 100.0, 25, 4));
+    ASSERT_EQ(trades.size(), 3u);
+
+    EXPECT_FALSE(book.hasOrder(1));
+    EXPECT_FALSE(book.hasOrder(2));
+    EXPECT_FALSE(book.cancelOrder(1));       // filled orders are not cancelable
+    EXPECT_TRUE(book.hasOrder(3));
+
+    auto best = book.getBestAsk();
+    ASSERT_NE(best, nullptr);
+    EXPECT_EQ(best->getOrderId(), 3);
+    EXPECT_EQ(best->getRemaining(), 5);
+}
+
+TEST(OrderBookMatchTest, WholeLevelFilled_LevelRemoved_BookEmpty) {
+    OrderBook book("AAPL");
+    book.addOrder(MakeOrder(1, Side::SELL, 100.0, 10, 1));
+    book.addOrder(MakeOrder(2, Side::SELL, 100.0, 10, 2));
+
+    auto trades = book.addOrder(MakeOrder(3, Side::BUY, 100.0, 20, 3));
+    ASSERT_EQ(trades.size(), 2u);
+
+    EXPECT_EQ(book.getBestAsk(), nullptr);
+    EXPECT_EQ(book.getBestBid(), nullptr);   // taker fully filled, nothing rests
 }
 
 // -------------------- LIMIT orders rest if not filled, MARKET orders don't rest --------------------

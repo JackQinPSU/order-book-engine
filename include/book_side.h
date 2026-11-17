@@ -18,8 +18,14 @@ public:
     // Get best price level
     std::optional<Price> getBestPrice() const;
 
-    // Get best order (front of the best price level), non-const to perform cleanups
+    // Get best order (front of the best price level), or nullptr if empty.
+    // Filled orders are removed as soon as they fill (see popBestOrder), so the
+    // front is always live and this is O(1) with no cleanup.
     std::shared_ptr<Order> getBestOrder();
+
+    // Remove the best order (front of the best price level). The matching loop calls
+    // this as soon as a maker is fully filled. Drops the level if it becomes empty.
+    void popBestOrder();
 
     // Remove order from book
     bool removeOrder(int64_t order_id);
@@ -46,9 +52,6 @@ private:
     
     // Quick lookup: order_id -> (price, position in deque)
     std::map<int64_t, Price> order_to_price_;
-    
-    // Helper: remove filled orders from front of level
-    void cleanPriceLevel(Price price);
 };
 
 #endif // BOOK_SIDE_H

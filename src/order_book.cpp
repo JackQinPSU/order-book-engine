@@ -109,8 +109,11 @@ std::vector<Trade> OrderBook::matchIncoming(const std::shared_ptr<Order>& incomi
 
         trades.push_back(makeTrade(incoming, maker, maker_px, qty));
 
-        // If maker is fully filled, it is no longer cancelable.
+        // A fully filled maker leaves the book right away. It is always the front of
+        // the best level (getBestOrder just returned it), so this is O(1) and no
+        // filled order is ever left behind for a later cleanup pass.
         if (maker->isFilled()) {
+            opposite.popBestOrder();
             order_side_.erase(maker->getOrderId());
         }
     }
