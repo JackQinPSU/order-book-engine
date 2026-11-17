@@ -1,24 +1,14 @@
 # Benchmark Results
 
-Run: 2026-11-15 01:16  
-Orders: 1000000 random limit orders, price 1-1000, qty 1-100, seed 42  
-Trades generated: 773459
+1M random limit orders (price 1-1000, qty 1-100, seed 42), Release build. Latencies in ns; clock resolution ~100 ns on Windows.
 
-## Throughput
-
-| Metric | Value |
-|---|---|
-| Total time | 1.02288 sec |
-| Throughput | 977630 orders/sec |
-| Avg latency | 1022.88 ns/order |
-
-## Latency per order
-
-| Percentile | ns |
-|---|---|
-| p50 | 800 |
-| p99 | 2900 |
-| p99.9 | 26400 |
-| max | 45607900 |
-
-Clock overhead ~0 ns, resolution ~100 ns (latencies rounded to this step).
+| Date | Commit | Throughput (orders/s) | Avg | p50 | p99 | p99.9 | Max | Trades |
+|---|---|--:|--:|--:|--:|--:|--:|--:|
+| 2026-11-15 01:16 | 76b8d20-dirty | 977630 | 1022 | 800 | 2900 | 26400 | 45607900 | 773459 |
+| 2026-11-15 01:30 | d8ea385-dirty | 1010622 | 989 | 800 | 2900 | 20700 | 50408500 | 773459 |
+| 2026-11-15 01:30 | d8ea385-dirty | 901202 | 1109 | 800 | 3000 | 25300 | 48121000 | 773459 |
+| 2026-11-15 01:32 | d8ea385-dirty | 1143573 | 874 | 700 | 2400 | 13700 | 40068600 | 773459 |
+| 2026-11-15 01:36 | d8ea385-dirty | 1124397 | 889 | 800 | 2800 | 28400 | 47753000 | 773459 |
+| 2026-11-15 01:43 | d8ea385-dirty | 943135 | 1060 | 800 | 3000 | 25100 | 47183700 | 772955 |
+| 2026-11-15 01:43 | d8ea385-dirty | 923974 | 1082 | 900 | 3000 | 26400 | 43456900 | 772955 |
+| 2026-11-15 01:43 | d8ea385-dirty | 887053 | 1127 | 800 | 2900 | 22700 | 51921700 | 772955 |

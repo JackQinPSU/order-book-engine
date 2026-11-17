@@ -29,14 +29,11 @@ std::vector<Trade> OrderBook::addOrder(const std::shared_ptr<Order>& order) {
     // If Order has symbol, enforce:
     if (order->getSymbol() != symbol_) throw std::invalid_argument("Wrong symbol");
 
-    std::vector<Trade> trades;
-
     BookSide& opposite = (order->getSide() == Side::BUY) ? asks_ : bids_;
     BookSide& my_side  = (order->getSide() == Side::BUY) ? bids_ : asks_;
 
     // 1) match first
-    auto matched = matchIncoming(order, opposite);
-    trades.insert(trades.end(), matched.begin(), matched.end());
+    auto trades = matchIncoming(order, opposite);
 
     // 2) rest remainder
     if (!order->isFilled() && order->getOrderType() == OrderType::LIMIT) {

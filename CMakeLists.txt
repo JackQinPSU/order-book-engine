@@ -57,4 +57,5 @@ target_include_directories(benchmark PRIVATE
 # Benchmark writes its results here, regardless of which folder you run it from
 target_compile_definitions(benchmark PRIVATE
     RESULTS_PATH="${CMAKE_SOURCE_DIR}/result.md"
+    SOURCE_DIR="${CMAKE_SOURCE_DIR}"
 )
