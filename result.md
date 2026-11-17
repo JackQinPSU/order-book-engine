@@ -21,3 +21,13 @@
 | Date | Commit | Throughput (ops/s) | Add p50 | Add p99 | Add p99.9 | Match p50 | Match p99 | Match p99.9 | Cancel p50 | Cancel p99 | Cancel p99.9 | Trades |
 |---|---|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|
 | 2026-11-17 14:48 | e38e8ec-dirty | 1449440 | 800 | 1500 | 26900 | 800 | 3300 | 9000 | 100 | 500 | 700 | 545023 |
+| 2026-11-17 15:21 | 296730a-dirty | 1656912 | 800 | 1400 | 28600 | 800 | 3000 | 8700 | 100 | 400 | 500 | 545023 |
+
+
+## Deep-queue workload: add / match / cancel
+
+100k untimed warm-up orders, then 1M measured ops: ~60% new limit orders and ~40% cancels of random resting orders, seed 42, Release build. Passive orders rest on 10 levels each side of a fixed mid (bids 90-99, asks 101-110), so each level queues thousands of orders; 10% of new orders are aggressive (buy at 110 / sell at 90) and trade. qty 1-100. Same columns as the mixed workload. Latencies in ns; clock resolution ~100 ns on Windows.
+
+| Date | Commit | Throughput (ops/s) | Add p50 | Add p99 | Add p99.9 | Match p50 | Match p99 | Match p99.9 | Cancel p50 | Cancel p99 | Cancel p99.9 | Trades |
+|---|---|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|
+| 2026-11-17 15:21 | 296730a-dirty | 76755 | 1700 | 127700 | 297200 | 1500 | 534100 | 1087200 | 700 | 1700 | 5900 | 118100 |
