@@ -3,7 +3,8 @@
 
 #include "order.h"
 #include <map>
-#include <deque>
+#include <list>
+#include <unordered_map>
 #include <memory>
 #include <optional>
 
@@ -27,7 +28,8 @@ public:
     // this as soon as a maker is fully filled. Drops the level if it becomes empty.
     void popBestOrder();
 
-    // Remove order from book
+    // Remove order from book. O(1) average: hash lookup + list erase
+    // (+ amortized O(1) map erase-by-iterator if the level empties).
     bool removeOrder(int64_t order_id);
 
     // Get total volumn at a price level
@@ -45,13 +47,27 @@ public:
 private:
     Side side_;  // "BUY" or "SELL"
 
-    // Price -> Queue of orders at that price (FIFO)
+    // FIFO queue of orders at one price. std::list (not deque) so iterators stay
+    // valid across inserts/erases elsewhere -> we can store a handle per order and
+    // erase from the middle in O(1) on cancel.
+    using OrderQueue = std::list<std::shared_ptr<Order>>;
+
+    // Price -> queue of orders at that price.
     // For BUY, use reverse iteration (highest price first)
     // For SELL, use normal iteration (lowest price first)
-    std::map<Price, std::deque<std::shared_ptr<Order>>> price_levels_;
-    
-    // Quick lookup: order_id -> (price, position in deque)
-    std::map<int64_t, Price> order_to_price_;
+    using LevelMap = std::map<Price, OrderQueue>;
+
+    // Direct handle to a resting order: its level and its node in that level's queue.
+    // Both iterators are stable (std::map and std::list never invalidate other elements).
+    struct OrderHandle {
+        LevelMap::iterator level;
+        OrderQueue::iterator node;
+    };
+
+    LevelMap price_levels_;
+
+    // order_id -> handle. O(1) average lookup for cancel / find.
+    std::unordered_map<int64_t, OrderHandle> orders_;
 };
 
 #endif // BOOK_SIDE_H

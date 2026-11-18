@@ -1,6 +1,5 @@
 #include "book_side.h"
 #include <iostream>
-#include <algorithm>
 #include <iterator>
 #include <stdexcept>
 
@@ -12,8 +11,10 @@ void BookSide::addOrder(std::shared_ptr<Order> order) {
 
     Price price = order->getPrice();
 
-    price_levels_[price].push_back(order);  // Add to the back of the deque (FIFO)
-    order_to_price_[order->getOrderId()] = price;   // Map order_id to price, for quick lookup
+    auto lvl_it = price_levels_.try_emplace(price).first;  // O(log L): find or create level
+    auto& level = lvl_it->second;
+    level.push_back(order);                                 // Back of the queue (FIFO)
+    orders_[order->getOrderId()] = { lvl_it, std::prev(level.end()) };  // Store handle for O(1) cancel
 }
 
 std::optional<Price> BookSide::getBestPrice() const {  // Optional: returns nullopt if empty
@@ -45,7 +46,7 @@ void BookSide::popBestOrder() {
                                        : price_levels_.begin();
     auto& level = lvl_it->second;
 
-    order_to_price_.erase(level.front()->getOrderId());
+    orders_.erase(level.front()->getOrderId());
     level.pop_front();
 
     if (level.empty()) {
@@ -54,31 +55,15 @@ void BookSide::popBestOrder() {
 }
 
 bool BookSide::removeOrder(int64_t order_id) {
-    auto it = order_to_price_.find(order_id);
-    if (it == order_to_price_.end()) return false;  // Find order_id w/o having to search all levels
+    auto it = orders_.find(order_id);       // O(1) avg: jump straight to the order
+    if (it == orders_.end()) return false;
 
-    Price price = it->second;
+    auto lvl_it = it->second.level;
+    lvl_it->second.erase(it->second.node);  // O(1): unlink node, no scan, no shifting
+    orders_.erase(it);
 
-    auto lvl_it = price_levels_.find(price);
-    if (lvl_it == price_levels_.end()) {
-        order_to_price_.erase(order_id);
-        return false;
-    }
-
-    auto& level = lvl_it->second;
-
-    auto order_it = std::find_if(level.begin(), level.end(),
-        [order_id](const std::shared_ptr<Order>& o) {   // Scan only this price level
-            return o && o->getOrderId() == order_id;
-        });
-
-    if (order_it == level.end()) return false;
-
-    level.erase(order_it);
-    order_to_price_.erase(order_id);
-
-    if (level.empty()) {
-        price_levels_.erase(lvl_it);    // Remove empty price level if deque is empty
+    if (lvl_it->second.empty()) {
+        price_levels_.erase(lvl_it);        // Amortized O(1): erase by iterator
     }
 
     return true;
@@ -118,23 +103,10 @@ void BookSide::print(int levels) const {
     }
 }
 
-// New method to find an order by ID, returns nullptr if not found or already filled
+// Find an order by ID, returns nullptr if not found. O(1) average.
+// Filled orders are removed immediately (popBestOrder), so anything indexed is live.
 std::shared_ptr<Order> BookSide::findOrder(int64_t order_id) const {
-    auto it = order_to_price_.find(order_id);                   
-    if (it == order_to_price_.end()) return nullptr;                        // O(1) lookup to find the price level of the order
-
-    Price price = it->second;
-    auto lvl_it = price_levels_.find(price);                                
-    if (lvl_it == price_levels_.end()) return nullptr;
-
-    const auto& level = lvl_it->second;
-
-    auto order_it = std::find_if(level.begin(), level.end(),                // Scan only this price level for the order ID, and check if it's not filled
-        [order_id](const std::shared_ptr<Order>& o) {
-            return o && o->getOrderId() == order_id && !o->isFilled();
-        });
-
-    if (order_it == level.end()) return nullptr;
-
-    return *order_it;
+    auto it = orders_.find(order_id);
+    if (it == orders_.end()) return nullptr;
+    return *it->second.node;
 }
